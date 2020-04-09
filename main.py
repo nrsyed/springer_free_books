@@ -1,6 +1,9 @@
+import argparse
 import os
 import requests
 import pandas as pd
+import pathlib
+import pdb
 from tqdm import tqdm
 import urllib
 
@@ -46,46 +49,72 @@ def parse_book_url(url, title, author, format_='pdf'):
     return download_url, new_fname
 
 
-# insert here the folder you want the books to be downloaded:
-folder = os.path.join(os.getcwd(), 'download')
+def get_books(book_table):
+    """
+    Yield relevant book info for each book in the table.
+    """
 
-if not os.path.exists(folder):
-    os.mkdir(folder)
+    # Package name is essentially category/discipline.
+    columns = [
+        "Book Title", "Author", "English Package Name", "OpenURL"
+    ]
 
-books = pd.read_excel('https://resource-cms.springernature.com/springer-cms/rest/v1/content/17858272/data/v4')
+    for title, author, pkg, url in book_table[columns].values():
+        yield {
+            "title": title,
+            "author": author,
+            "pkg": pkg,
+            "url": url
+        }
 
-# save table:
-books.to_excel(os.path.join(folder, 'table.xlsx'))
 
-# debug:
-# books = books.head()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "dst_dir", type=pathlib.Path, default="download",
+        help="Destination directory"
+    )
+    parser.add_argument("--epub", action="store_true", help="Grab epubs")
+    args = vars(parser.parse_args())
 
-print('Download started.')
+    book_table_url = "".join(
+        [
+            "https://resource-cms.springernature.com/",
+            "springer-cms/rest/v1/content/17858272/data/v4"
+        ]
+    )
 
-for url, title, author, pk_name in tqdm(books[['OpenURL', 'Book Title', 'Author', 'English Package Name']].values):
+    dst_dir = args["dst_dir"].expanduser().absolute()
+    dst_dir.mkdir(exist_ok=True)
 
-    new_folder = os.path.join(folder, pk_name)
+    table_path = dst_dir / "table.xlsx"
+    book_table = pd.read_excel(book_table_url)
 
-    if not os.path.exists(new_folder):
-        os.mkdir(new_folder)
+    # Save table.
+    book_table.to_excel(str(table_path))
 
-    r = requests.get(url)
 
-    # Download pdf version.
-    pdf_download_url, pdf_fname = parse_book_url(r.url, title, author, 'pdf')
-    pdf_fpath = os.path.join(new_folder, pdf_fname)
+if __name__ == "false":
+        new_folder = os.path.join(folder, pk_name)
 
-    pdf_request = requests.get(pdf_download_url, allow_redirects=True)
-    with open(pdf_fpath, 'wb') as f:
-        f.write(pdf_request.content)
+        if not os.path.exists(new_folder):
+            os.mkdir(new_folder)
 
-    #download epub version too if exists
-    epub_download_url, epub_fname = parse_book_url(r.url, title, author, 'epub')
-    epub_fpath = os.path.join(new_folder, epub_fname)
+        r = requests.get(url)
 
-    epub_request = requests.get(epub_download_url, allow_redirects=True)
-    if epub_request.status_code == 200:
-        with open(epub_fpath, 'wb') as f:
-            f.write(epub_request.content)
+        # Download pdf version.
+        pdf_download_url, pdf_fname = parse_book_url(r.url, title, author, 'pdf')
+        pdf_fpath = os.path.join(new_folder, pdf_fname)
 
-print('Download finished.')
+        pdf_request = requests.get(pdf_download_url, allow_redirects=True)
+        with open(pdf_fpath, 'wb') as f:
+            f.write(pdf_request.content)
+
+        #download epub version too if exists
+        epub_download_url, epub_fname = parse_book_url(r.url, title, author, 'epub')
+        epub_fpath = os.path.join(new_folder, epub_fname)
+
+        epub_request = requests.get(epub_download_url, allow_redirects=True)
+        if epub_request.status_code == 200:
+            with open(epub_fpath, 'wb') as f:
+                f.write(epub_request.content)
