@@ -2,11 +2,11 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import os
 import requests
-import pandas as pd
 import pathlib
 import time
 import urllib
 
+import pandas as pd
 #from tqdm import tqdm
 
 
